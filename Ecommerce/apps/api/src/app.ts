@@ -10,6 +10,9 @@ import detalhesproduto from "./route/produtos";
 // Importando a rota de categorias de produtos
 import cateogoriasprodutos from "./route/categorias";
 
+// Importar a roda de usuários
+import usuarios from "./route/usuarios";
+
 const app = express();
 
 app.get("/", (req: Request, res: Response) => {
@@ -25,5 +28,8 @@ app.use(detalhesproduto);
 
 // Configurando a rota de categorias de produtos
 app.use(cateogoriasprodutos);
+
+// Configurando a rota de usuários
+app.use(usuarios);
 
 export default app;

@@ -2,4 +2,4 @@
 
 Esse app é um exemplo.
 
-> Iniciar no tópico `Configurar Docker da api`
+> Iniciar no tópico `Criar o Frontend com Vite e React`

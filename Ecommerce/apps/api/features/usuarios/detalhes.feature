@@ -1,3 +1,5 @@
+# GET /usuarios/1
+
 Feature: Consulta de Usuário por Id
 
   Como cliente da API do e-commerce

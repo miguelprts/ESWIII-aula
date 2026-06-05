@@ -1,23 +1,31 @@
 import { Request, Response } from "express";
-import { getUsuarioById, getUsuarios } from "../data/usuario.memory";
+import {
+  UsuarioRepository,
+  usuarioRepository,
+} from "../repository/usuarios";
 
 export class UsuarioController {
-  // GET /usuarios
-  index(req: Request, res: Response) {
-    const usuarios = getUsuarios();
+  constructor(
+    private readonly repository: UsuarioRepository = usuarioRepository,
+  ) {}
 
-    return res.status(200).json(usuarios);
+  // GET /usuarios
+  async index(req: Request, res: Response): Promise<void> {
+    const usuarios = await this.repository.list();
+
+    res.status(200).json(usuarios);
   }
 
   // GET /usuarios/:id
-  show(req: Request, res: Response) {
+  async show(req: Request, res: Response): Promise<void> {
     const id = Number(req.params.id);
-    const usuario = getUsuarioById(id);
+    const usuario = await this.repository.findById(id);
 
     if (!usuario) {
-      return res.status(404).json({ message: "Usuário não encontrado" });
+      res.status(404).json({ message: "Usuário não encontrado" });
+      return;
     }
 
-    return res.status(200).json(usuario);
+    res.status(200).json(usuario);
   }
 }

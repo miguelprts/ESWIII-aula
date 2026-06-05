@@ -1,78 +1,80 @@
 import { Request, Response } from "express";
-import { getProdutos } from "../data/produtos.memory";
+import {
+  ProdutoFilters,
+  ProdutoRepository,
+  produtoRepository,
+} from "../repository/produtos";
 
 export class ProdutoController {
+  constructor(
+    private readonly repository: ProdutoRepository = produtoRepository,
+  ) {}
+
   // GET /produtos?categoria=...&nome=...&disponivel=...
-  index(req: Request, res: Response) {
+  async index(req: Request, res: Response): Promise<void> {
     const { categoria, nome, disponivel } = req.query;
 
-    let produtos = getProdutos();
+    const filters: ProdutoFilters = {};
 
     if (categoria) {
-      produtos = produtos.filter(
-        (produto) =>
-          produto.categoria.toLowerCase() === String(categoria).toLowerCase(),
-      );
+      filters.categoria = String(categoria);
     }
 
     if (nome) {
-      produtos = produtos.filter((produto) =>
-        produto.nome.toLowerCase().includes(String(nome).toLowerCase()),
-      );
+      filters.nome = String(nome);
     }
 
     if (disponivel === "true") {
-      produtos = produtos.filter((produto) => produto.estoque > 0);
+      filters.disponivel = true;
     }
 
-    return res.status(200).json(produtos);
+    const produtos = await this.repository.list(filters);
+
+    res.status(200).json(produtos);
   }
 
   // GET /produtos/:id
-  show(req: Request, res: Response) {
+  async show(req: Request, res: Response): Promise<void> {
     const id = Number(req.params.id);
 
-    const produto = getProdutos().find((p) => p.id === id);
+    const produto = await this.repository.findById(id);
 
     if (!produto) {
-      return res.status(404).json({ message: "Produto não encontrado" });
+      res.status(404).json({ message: "Produto não encontrado" });
+      return;
     }
 
-    return res.status(200).json(produto);
+    res.status(200).json(produto);
   }
 
   // GET /produtos/destaques
-  destaques(req: Request, res: Response) {
-    const produtos = getProdutos();
-    const produtosEmDestaque = produtos.filter((produto) => produto.destaque === true);
+  async destaques(req: Request, res: Response): Promise<void> {
+    const produtosEmDestaque = await this.repository.list({ destaque: true });
 
-    return res.status(200).json(produtosEmDestaque);
+    res.status(200).json(produtosEmDestaque);
   }
 
   // GET /produtos/novidades
-  novidades(req: Request, res: Response) {
-    const produtos = getProdutos();
-    const produtosEmNovidades = produtos.filter((produto) => produto.novidade === true);
+  async novidades(req: Request, res: Response): Promise<void> {
+    const produtosEmNovidades = await this.repository.list({ novidade: true });
 
-    return res.status(200).json(produtosEmNovidades);
+    res.status(200).json(produtosEmNovidades);
   }
 
-  promocoes(req: Request, res: Response) {
-    const produtos = getProdutos();
-    const produtosEmPromocoes = produtos.filter((produto) => produto.promocao === true);
+  async promocoes(req: Request, res: Response): Promise<void> {
+    const produtosEmPromocoes = await this.repository.list({ promocao: true });
 
-    return res.status(200).json(produtosEmPromocoes);
+    res.status(200).json(produtosEmPromocoes);
   }
 
   // GET /categorias
-  categorias(req: Request, res: Response) {
-    const produtos = getProdutos();
+  async categorias(req: Request, res: Response): Promise<void> {
+    const produtos = await this.repository.list();
 
     const categorias = [
       ...new Set(produtos.map((produto) => produto.categoria)),
     ];
 
-    return res.status(200).json(categorias);
+    res.status(200).json(categorias);
   }
-
 }

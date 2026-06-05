@@ -7,6 +7,8 @@
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "db:migrate": "ts-node src/database/migrate.ts",
+    "db:seed": "ts-node src/database/seed.ts",
     "test:bdd": "cucumber-js",
     "test:unit": "jest --runInBand",
     "test:unit:watch": "jest --watch"
@@ -18,7 +20,8 @@
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "mongoose": "^9.6.2"
   },
   "devDependencies": {
     "@cucumber/cucumber": "^12.7.0",

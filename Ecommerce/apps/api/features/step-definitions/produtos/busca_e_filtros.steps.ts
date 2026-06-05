@@ -1,15 +1,10 @@
-import { Given, When, Then, Before } from "@cucumber/cucumber";
+import { When, Then } from "@cucumber/cucumber";
 import request from "supertest";
 import { expect } from "chai";
 
 import app from "../../../src/app";
-import { setProdutos, clearProdutos } from "../../../src/data/produtos.memory";
 
 let response: request.Response;
-
-Before(function () {
-  clearProdutos();
-});
 
 // Given está em shared.steps.ts para ser reutilizado em outros cenários de produtos
 

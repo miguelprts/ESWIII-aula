@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { NextFunction, Request, Response } from "express";
 
 // Importando as rotas dos produtos
 import listarprodutos from "./route/produtos";
@@ -10,7 +10,7 @@ import detalhesproduto from "./route/produtos";
 // Importando a rota de categorias de produtos
 import cateogoriasprodutos from "./route/categorias";
 
-// Importar a roda de usuários
+// Importando as rotas dos usuários
 import usuarios from "./route/usuarios";
 
 const app = express();
@@ -29,7 +29,14 @@ app.use(detalhesproduto);
 // Configurando a rota de categorias de produtos
 app.use(cateogoriasprodutos);
 
-// Configurando a rota de usuários
+// Configurando as rotas dos usuários
 app.use(usuarios);
+
+app.use(
+  (error: Error, req: Request, res: Response, next: NextFunction) => {
+    console.error(error);
+    res.status(500).json({ message: "Erro inesperado" });
+  },
+);
 
 export default app;

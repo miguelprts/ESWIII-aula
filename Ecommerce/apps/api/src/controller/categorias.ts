@@ -1,10 +1,17 @@
 import { Request, Response } from "express";
-import { getCategorias } from "../data/categorias.memory";
+import {
+    CategoriaRepository,
+    categoriaRepository,
+} from "../repository/categorias";
 
 export class CategoriaController {
+    constructor(
+        private readonly repository: CategoriaRepository = categoriaRepository,
+    ) {}
+
     // GET /categorias
-    index(req: Request, res: Response) {
-        const categorias = getCategorias();
-        return res.status(200).json(categorias);
+    async index(req: Request, res: Response): Promise<void> {
+        const categorias = await this.repository.list();
+        res.status(200).json(categorias);
     }
 }

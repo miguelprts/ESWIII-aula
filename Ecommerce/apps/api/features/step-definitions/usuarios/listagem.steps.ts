@@ -3,21 +3,18 @@ import { expect } from "chai";
 import request from "supertest";
 
 import app from "../../../src/app";
-import {
-  clearUsuarios,
-  getUsuarios,
-  resetUsuarios,
-} from "../../../src/data/usuario.memory";
+import { usuariosIniciais } from "../../../src/database/seeds/dados-iniciais";
 import { Usuario } from "../../../src/model/usuario";
+import { usuarioRepository } from "../../../src/repository/usuarios";
 
 let response: request.Response;
 
-Given("existem usuários cadastrados", function () {
-  resetUsuarios();
+Given("existem usuários cadastrados", async function () {
+  await usuarioRepository.replaceAll(usuariosIniciais);
 });
 
-Given("não existem usuários cadastrados", function () {
-  clearUsuarios();
+Given("não existem usuários cadastrados", async function () {
+  await usuarioRepository.clear();
 });
 
 When(
@@ -36,12 +33,13 @@ Then(
 
 Then(
   "a resposta da listagem de usuários deve conter os usuários cadastrados",
-  function () {
+  async function () {
     expect(response.body).to.be.an("array");
 
     const usuariosRecebidos = response.body as Usuario[];
+    const usuariosEsperados = await usuarioRepository.list();
 
-    for (const usuarioEsperado of getUsuarios()) {
+    for (const usuarioEsperado of usuariosEsperados) {
       const usuarioRecebido = usuariosRecebidos.find(
         (usuario) => usuario.id === usuarioEsperado.id,
       );

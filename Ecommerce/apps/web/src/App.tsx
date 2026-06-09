@@ -176,7 +176,7 @@ function App() {
         <div>
           <h1>Catalogo do e-commerce</h1>
         </div>
-        {/* <button
+        <button
           className="refresh-button"
           type="button"
           onClick={() => void carregarDados()}
@@ -184,7 +184,7 @@ function App() {
         >
           <RefreshCcw size={18} aria-hidden="true" />
           <span>Recarregar</span>
-        </button> */}
+        </button>
       </header>
 
       <section className="summary-grid" aria-label="Resumo do catalogo">

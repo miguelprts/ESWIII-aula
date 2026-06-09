@@ -54,17 +54,13 @@ function App() {
     setErro(null);
 
     try {
-      const [
-        produtosDaApi,
-        categoriasDaApi,
-        usuariosDaApi,
-        carrinhoDaApi,
-      ] = await Promise.all([
-        listarProdutos(),
-        listarCategorias(),
-        listarUsuarios(),
-        buscarCarrinhoAtual(),
-      ]);
+      const [produtosDaApi, categoriasDaApi, usuariosDaApi, carrinhoDaApi] =
+        await Promise.all([
+          listarProdutos(),
+          listarCategorias(),
+          listarUsuarios(),
+          buscarCarrinhoAtual(),
+        ]);
 
       setProdutos(produtosDaApi);
       setCategorias(categoriasDaApi);
@@ -155,14 +151,15 @@ function App() {
       const combinaBusca = produto.nome
         .toLowerCase()
         .includes(busca.trim().toLowerCase());
-      const combinaDisponibilidade =
-        !apenasDisponiveis || produto.estoque > 0;
+      const combinaDisponibilidade = !apenasDisponiveis || produto.estoque > 0;
 
       return combinaCategoria && combinaBusca && combinaDisponibilidade;
     });
   }, [apenasDisponiveis, busca, categoriaSelecionada, produtos]);
 
-  const totalDisponivel = produtos.filter((produto) => produto.estoque > 0).length;
+  const totalDisponivel = produtos.filter(
+    (produto) => produto.estoque > 0,
+  ).length;
   const totalPromocoes = produtos.filter((produto) => produto.promocao).length;
   const quantidadeCarrinho = carrinho.itens.reduce(
     (total, item) => total + item.quantidade,
@@ -302,7 +299,10 @@ function App() {
                           ? `${produto.estoque} em estoque`
                           : "sem estoque"}
                       </span>
-                      <div className="badges" aria-label="Marcadores do produto">
+                      <div
+                        className="badges"
+                        aria-label="Marcadores do produto"
+                      >
                         {produto.destaque && <span>Destaque</span>}
                         {produto.promocao && <span>Promocao</span>}
                         {produto.novidade && <span>Novidade</span>}

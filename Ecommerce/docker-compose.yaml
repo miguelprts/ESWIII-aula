@@ -1,0 +1,112 @@
+services:
+  # Banco de dados MongoDB para desenvolvimento local.
+  mongodb:
+    # Usa a imagem oficial do MongoDB.
+    image: mongo:7
+    container_name: ecommerce_mongodb
+
+    # Permite acessar o MongoDB tambem pelo host, se necessario.
+    ports:
+      - "${PORT_MONGODB:-27277}:27017"
+
+    # Persiste os dados do MongoDB entre reinicializacoes dos containers.
+    volumes:
+      - ecommerce_mongodb_data:/data/db
+
+    # Aguarda o MongoDB aceitar conexoes antes dos scripts da API.
+    # O comando healthcheck usa mongosh para verificar se o banco esta responsivo.
+    # Ou seja, informa ao Docker se o MongoDB está healthy ou não.
+    # Na prática, o comando faz um ping no MongoDB. Quando ele passa, o Docker marca o container como saudável.
+    # Os tipos de condições que o Docker Compose suporta para controlar a ordem de inicialização dos serviços com base na saúde ou status dos containers são:
+    # "service_healthy": garantir que outros serviços só iniciem depois que o MongoDB estiver pronto
+    # "service_started": serviço iniciado assim que o container é criado, sem esperar pela saúde
+    # "service_completed_successfully": espera o container terminar sua execução com sucesso, mas não é adequada para o MongoDB, que deve permanecer em execução.
+    healthcheck:
+      test:
+        ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Interface web para visualizar o MongoDB em desenvolvimento.
+  mongo-express:
+    # Usa a imagem oficial do Mongo Express.
+    image: mongo-express:1.0.2-20-alpine3.19
+    container_name: ecommerce_mongo_express
+
+    # Disponibiliza a interface web em http://localhost:8081.
+    ports:
+      - "${PORT_MONGODB_EXPRESS:-8081}:8081"
+
+    # Conecta ao MongoDB pela rede interna do Docker Compose.
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongodb:27017
+      ME_CONFIG_BASICAUTH: "false"
+
+    # Inicia o MongoDB antes do Mongo Express.
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  # Executa migracoes e dados iniciais antes da API subir.
+  api-setup:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      target: build
+    container_name: ecommerce_api_setup
+
+    # Dentro do Docker, os scripts acessam o MongoDB pelo nome do servico.
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+      MONGODB_DATABASE: ${MONGODB_DATABASE}
+
+    command: sh -c "npm run db:migrate && npm run db:seed"
+
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  # API Node.js/Express em modo de desenvolvimento.
+  api:
+    # Usa o Dockerfile simples localizado em apps/api.
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: ecommerce_api
+
+    # Dentro do Docker, a API acessa o MongoDB pelo nome do servico.
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+
+    # Mapeia a porta do host definida no .env para a porta 3001 do container.
+    ports:
+      - "${PORT:-3001}:3001"
+
+    # Inicia a API depois que o banco foi preparado.
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      api-setup:
+        condition: service_completed_successfully
+
+  # Frontend React/Vite servido com Nginx em modo de producao.
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: ecommerce_web
+
+    # Disponibiliza o frontend em http://localhost:PORT.
+    ports:
+      - "${WEB_PORT:-3002}:80"
+
+    # Inicia a API antes do frontend.
+    depends_on:
+      - api
+
+# Volumes gerenciados pelo Docker.
+volumes:
+  # Dados persistentes do MongoDB.
+  ecommerce_mongodb_data:

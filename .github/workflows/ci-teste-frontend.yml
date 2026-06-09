@@ -1,0 +1,79 @@
+# Nome exibido na aba "Actions" do GitHub
+name: CI - Testes do Frontend
+
+# Gatilhos: o workflow roda em pushes e pull requests de qualquer branch
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+# Como o package.json do frontend está em Ecommerce/apps/web, os comandos npm devem rodar nesse diretório
+defaults:
+  run:
+    working-directory: Ecommerce/apps/web
+
+# Conjunto de etapas executadas na máquina virtual
+jobs:
+  # Executa os testes antes de permitir o build
+  tests:
+    # O que será mostrado no GitHub Actions
+    name: Testes automatizados do frontend
+
+    # Ambiente virtual usado pelo GitHub Actions
+    runs-on: ubuntu-latest
+
+    steps:
+      # Baixa o código do repositório para dentro da máquina virtual do GitHub Actions
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      # Instala e configura a versão do Node.js usada pela pipeline
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ecommerce/apps/web/package-lock.json
+
+      # Instala as dependências exatamente como descritas no package-lock.json
+      - name: Instalar dependências
+        run: npm ci
+
+      # Executa os testes de aceitação(BDD) do frontend
+      - name: Executar testes BDD
+        run: npm run test:bdd
+
+  # O build só executa se os testes passarem
+  build:
+    # O que será mostrado no GitHub Actions
+    name: Build do frontend
+
+    # Garante que o build depende do sucesso dos testes
+    needs: tests
+
+    # Ambiente virtual usado pelo GitHub Actions
+    runs-on: ubuntu-latest
+
+    steps:
+      # Baixa o código do repositório para dentro da máquina virtual do GitHub Actions
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      # Instala e configura a versão do Node.js usada pela pipeline
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ecommerce/apps/web/package-lock.json
+
+      # Instala as dependências exatamente como descritas no package-lock.json
+      - name: Instalar dependências
+        run: npm ci
+
+      # Compila o frontend apenas depois dos testes passarem
+      - name: Verificar build do frontend
+        run: npm run build

@@ -3742,3 +3742,368 @@ MONGODB_DATABASE=ecommerce_dev
   * Acesse  `Settings` / `Enviroments` / `Production`
   * Role a página, encontre a variável com o enderço da API (ex: *VITE_API_URL*) e coloque o endereço da API publicada no Render
   * Faça o Redeploy
+
+### Alterações em Produção
+
+Uma das vantagens de usar o **Github Actions** é automatizar as alterações para produção e com a garantia de funcionamento sem falhas.
+
+Vamos criar cenários para verificar as alterações feitas indo direto para produção com êxito e outra com falha.
+
+#### Cenário com Êxito
+
+Criar um teste de aceitação que passa ao simular o clique em "Recarregar" no frontend.
+
+Todos os procedimentos abaixo devem ser realizados em `Ecommerce/apps/api`.
+
+Execute `npm i -D @vitejs/plugin-react chai jsdom tsx`
+
+Editar arquivo `package.json`
+
+```json
+  "scripts": {
+   ...
+    "test:bdd": "node --import tsx --import ./features/support/register-css-loader.mjs ./node_modules/@cucumber/cucumber/bin/cucumber.js --config cucumber.mjs"
+  },
+```
+
+Editar arquivo `cucumber.mjs`
+
+```json
+export default {
+  import: ["features/step-definitions/**/*.ts"],
+  paths: ["features/**/*.feature"],
+};
+
+```
+
+Criar as pastas `mkdir -p features/recarregar features/step-definitions/recarregar features/support`
+
+Editar `features/recarregar/recarregar.feature`
+
+```gherkin
+Feature: Recarregar página inicial
+
+  Como visitante do e-commerce
+  Quero recarregar os dados da página inicial
+  Para visualizar as informações mais recentes do catálogo
+
+  Scenario: Recarregar dados ao clicar no botão
+    Given a página inicial do e-commerce está carregada
+    When eu clico no botão "Recarregar"
+    Then os dados da página inicial devem ser carregados novamente
+
+```
+
+Editar `features/step-definitions/recarregar/recarregar.steps.ts`
+
+```typescript
+import {
+  After,
+  AfterAll,
+  Before,
+  Given,
+  Then,
+  When,
+} from "@cucumber/cucumber";
+import { expect } from "chai";
+import { JSDOM } from "jsdom";
+
+const dom = new JSDOM("<!doctype html><html><body></body></html>", {
+  url: "http://localhost",
+});
+
+Object.defineProperties(globalThis, {
+  window: { value: dom.window, configurable: true },
+  document: { value: dom.window.document, configurable: true },
+  navigator: { value: dom.window.navigator, configurable: true },
+  HTMLElement: { value: dom.window.HTMLElement, configurable: true },
+  SVGElement: { value: dom.window.SVGElement, configurable: true },
+  Element: { value: dom.window.Element, configurable: true },
+  Node: { value: dom.window.Node, configurable: true },
+  MutationObserver: {
+    value: dom.window.MutationObserver,
+    configurable: true,
+  },
+  getComputedStyle: {
+    value: dom.window.getComputedStyle.bind(dom.window),
+    configurable: true,
+  },
+});
+
+(globalThis as typeof globalThis & {
+  IS_REACT_ACT_ENVIRONMENT?: boolean;
+}).IS_REACT_ACT_ENVIRONMENT = true;
+
+type TestingLibrary = typeof import("@testing-library/react");
+
+const respostasPorEndpoint: Record<string, unknown> = {
+  "/produtos": [
+    {
+      id: 1,
+      nome: "Camiseta Básica",
+      descricao: "Camiseta de algodão",
+      preco: 59.9,
+      categoria: "Camisetas",
+      estoque: 10,
+      destaque: true,
+      promocao: false,
+      criadoEm: "2026-01-01",
+    },
+  ],
+  "/categorias": [
+    {
+      id: 1,
+      categoria: "Camisetas",
+      totalProdutos: 1,
+    },
+  ],
+  "/usuarios": [
+    {
+      id: 1,
+      nome: "Maria",
+      email: "maria@example.com",
+    },
+  ],
+  "/carrinhos/ultimo": {
+    itens: [],
+  },
+};
+
+let chamadasFetch: string[] = [];
+let fetchOriginal: typeof globalThis.fetch;
+
+function criarRespostaJson(body: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  } as Response;
+}
+
+function extrairPath(input: RequestInfo | URL): string {
+  const url =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.href
+        : input.url;
+
+  return new URL(url, "http://localhost:3001").pathname;
+}
+
+function contarChamadas(endpoint: string): number {
+  return chamadasFetch.filter((path) => path === endpoint).length;
+}
+
+async function importarTestingLibrary(): Promise<TestingLibrary> {
+  return import("@testing-library/react");
+}
+
+Before(function () {
+  chamadasFetch = [];
+  fetchOriginal = globalThis.fetch;
+  document.body.innerHTML = "";
+
+  globalThis.fetch = async (input: RequestInfo | URL) => {
+    const path = extrairPath(input);
+    chamadasFetch.push(path);
+
+    if (path in respostasPorEndpoint) {
+      return criarRespostaJson(respostasPorEndpoint[path]);
+    }
+
+    return criarRespostaJson({ message: "Endpoint não encontrado" }, 404);
+  };
+});
+
+After(async function () {
+  const { cleanup } = await importarTestingLibrary();
+
+  cleanup();
+  globalThis.fetch = fetchOriginal;
+  document.body.innerHTML = "";
+});
+
+AfterAll(function () {
+  dom.window.close();
+});
+
+Given("a página inicial do e-commerce está carregada", async function () {
+  const React = await import("react");
+  const { render, screen, waitFor } = await importarTestingLibrary();
+  const { default: App } = await import("../../../src/App");
+
+  render(React.createElement(App));
+
+  await screen.findByRole("button", { name: /recarregar/i });
+
+  await waitFor(() => {
+    expect(contarChamadas("/produtos")).to.equal(1);
+    expect(contarChamadas("/categorias")).to.equal(1);
+    expect(contarChamadas("/usuarios")).to.equal(1);
+    expect(contarChamadas("/carrinhos/ultimo")).to.equal(1);
+  });
+});
+
+When("eu clico no botão {string}", async function (rotulo: string) {
+  const { act } = await import("react");
+  const { fireEvent, screen } = await importarTestingLibrary();
+
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: rotulo }));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+});
+
+Then("os dados da página inicial devem ser carregados novamente", async function () {
+  const { waitFor } = await importarTestingLibrary();
+
+  await waitFor(() => {
+    expect(contarChamadas("/produtos")).to.equal(2);
+    expect(contarChamadas("/categorias")).to.equal(2);
+    expect(contarChamadas("/usuarios")).to.equal(2);
+    expect(contarChamadas("/carrinhos/ultimo")).to.equal(2);
+  });
+});
+
+```
+
+Editar `features/support/ignore-css-loader.mjs`
+
+```typescript
+export async function load(url, context, nextLoad) {
+  if (new URL(url).pathname.endsWith(".css")) {
+    return {
+      format: "module",
+      shortCircuit: true,
+      source: "export default {};",
+    };
+  }
+
+  return nextLoad(url, context);
+}
+
+```
+
+Editar `features/support/register-css-loader.mjs`
+
+```typescript
+import { register } from "node:module";
+
+register("./ignore-css-loader.mjs", import.meta.url);
+```
+
+Editar `src/api.ts`
+
+```typescript
+import { Carrinho, Categoria, Produto, Usuario } from "./model";
+
+// Acrescentar essa linha
+const API_URL = import.meta.env?.VITE_API_URL || "http://localhost:3001";
+
+// ...
+```
+
+Editar `.github/workflows/ci-teste-frontend.yml`
+
+```yaml
+# Nome exibido na aba "Actions" do GitHub
+name: CI - Testes do Frontend
+
+# Gatilhos: o workflow roda em pushes e pull requests de qualquer branch
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - "**"
+
+# Como o package.json do frontend está em Ecommerce/apps/web, os comandos npm devem rodar nesse diretório
+defaults:
+  run:
+    working-directory: Ecommerce/apps/web
+
+# Conjunto de etapas executadas na máquina virtual
+jobs:
+  # Executa os testes antes de permitir o build
+  tests:
+    # O que será mostrado no GitHub Actions
+    name: Testes automatizados do frontend
+
+    # Ambiente virtual usado pelo GitHub Actions
+    runs-on: ubuntu-latest
+
+    steps:
+      # Baixa o código do repositório para dentro da máquina virtual do GitHub Actions
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      # Instala e configura a versão do Node.js usada pela pipeline
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ecommerce/apps/web/package-lock.json
+
+      # Instala as dependências exatamente como descritas no package-lock.json
+      - name: Instalar dependências
+        run: npm ci
+
+      # Executa os testes de aceitação(BDD) do frontend
+      - name: Executar testes BDD
+        run: npm run test:bdd
+
+  # O build só executa se os testes passarem
+  build:
+    # O que será mostrado no GitHub Actions
+    name: Build do frontend
+
+    # Garante que o build depende do sucesso dos testes
+    needs: tests
+
+    # Ambiente virtual usado pelo GitHub Actions
+    runs-on: ubuntu-latest
+
+    steps:
+      # Baixa o código do repositório para dentro da máquina virtual do GitHub Actions
+      - name: Baixar código do repositório
+        uses: actions/checkout@v4
+
+      # Instala e configura a versão do Node.js usada pela pipeline
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Ecommerce/apps/web/package-lock.json
+
+      # Instala as dependências exatamente como descritas no package-lock.json
+      - name: Instalar dependências
+        run: npm ci
+
+      # Compila o frontend apenas depois dos testes passarem
+      - name: Verificar build do frontend
+        run: npm run build
+```
+
+Atualizar repositório remoto.
+
+#### Cenário SEM êxito
+
+Editar `wep/src/App.tsx`
+
+```javascript
+        {/* <button
+          className="refresh-button"
+          type="button"
+          onClick={() => void carregarDados()}
+          title="Recarregar dados da API"
+        >
+          <RefreshCcw size={18} aria-hidden="true" />
+          <span>Recarregar</span>
+        </button> */}
+```
+
+Atualizar o repositório.
